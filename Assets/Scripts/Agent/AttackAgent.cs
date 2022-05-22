@@ -9,29 +9,8 @@ using Random = UnityEngine.Random;
 
 public class AttackAgent : Agent
 {
-    [Header("Walk Speed")]
-    [Range(0.1f, 10)]
-    [SerializeField]
-    //The walking speed to try and achieve
-    private float m_TargetWalkingSpeed = 10;
 
-    public float MTargetWalkingSpeed // property
-    {
-        get { return m_TargetWalkingSpeed; }
-        set { m_TargetWalkingSpeed = Mathf.Clamp(value, .1f, m_maxWalkingSpeed); }
-    }
-
-    const float m_maxWalkingSpeed = 10; //The max walking speed
-
-    //Should the agent sample a new goal velocity each episode?
-    //If true, walkSpeed will be randomly set between zero and m_maxWalkingSpeed in OnEpisodeBegin()
-    //If false, the goal velocity will be walkingSpeed
-    public bool randomizeWalkSpeedEachEpisode;
-
-    //The direction an agent will walk during training.
-    private Vector3 m_WorldDirToWalk = Vector3.right;
-
-    [Header("Target To Walk Towards")] public Transform target; //Target the agent will walk towards during training.
+    [Header("Target To Attack")] public Transform target; 
 
     [Header("Body Parts")] public Transform hips;
     public Transform chest;
@@ -59,6 +38,8 @@ public class AttackAgent : Agent
     JointDriveController m_JdController;
     EnvironmentParameters m_ResetParams;
 
+    private float distance;
+    private float standing;
     public override void Initialize()
     {
         m_OrientationCube = GetComponentInChildren<OrientationCubeController>();
@@ -99,14 +80,10 @@ public class AttackAgent : Agent
             bodyPart.Reset(bodyPart);
         }
 
-        //Random start rotation to help generalize
-        hips.rotation = Quaternion.Euler(0, Random.Range(0.0f, 360.0f), 0);
-
+        distance = MathF.Min(Vector3.Distance(target.localPosition,handL.localPosition),Vector3.Distance(target.localPosition,handR.localPosition));
+        standing = 0;
         UpdateOrientationObjects();
 
-        //Set our goal walking speed
-        MTargetWalkingSpeed =
-            randomizeWalkSpeedEachEpisode ? Random.Range(0.1f, m_maxWalkingSpeed) : MTargetWalkingSpeed;
 
         SetResetParameters();
     }
@@ -141,17 +118,13 @@ public class AttackAgent : Agent
     {
         var cubeForward = m_OrientationCube.transform.forward;
 
-        //velocity we want to match
-        var velGoal = cubeForward * MTargetWalkingSpeed;
         //ragdoll's avg vel
         var avgVel = GetAvgVelocity();
 
         //current ragdoll velocity. normalized
-        sensor.AddObservation(Vector3.Distance(velGoal, avgVel));
+        sensor.AddObservation(avgVel);
         //avg body vel relative to cube
         sensor.AddObservation(m_OrientationCube.transform.InverseTransformDirection(avgVel));
-        //vel goal relative to cube
-        sensor.AddObservation(m_OrientationCube.transform.InverseTransformDirection(velGoal));
 
         //rotation deltas
         sensor.AddObservation(Quaternion.FromToRotation(hips.forward, cubeForward));
@@ -208,7 +181,6 @@ public class AttackAgent : Agent
     //Update OrientationCube and DirectionIndicator
     void UpdateOrientationObjects()
     {
-        m_WorldDirToWalk = target.position - hips.position;
         m_OrientationCube.UpdateOrientation(hips, target);
         if (m_DirectionIndicator)
         {
@@ -220,39 +192,15 @@ public class AttackAgent : Agent
     {
         UpdateOrientationObjects();
 
-        var cubeForward = m_OrientationCube.transform.forward;
-
-        // Set reward for this step according to mixture of the following elements.
-        // a. Match target speed
-        //This reward will approach 1 if it matches perfectly and approach zero as it deviates
-        var matchSpeedReward = GetMatchingVelocityReward(cubeForward * MTargetWalkingSpeed, GetAvgVelocity());
-
-        //Check for NaNs
-        if (float.IsNaN(matchSpeedReward))
-        {
-            throw new ArgumentException(
-                "NaN in moveTowardsTargetReward.\n" +
-                $" cubeForward: {cubeForward}\n" +
-                $" hips.velocity: {m_JdController.bodyPartsDict[hips].rb.velocity}\n" +
-                $" maximumWalkingSpeed: {m_maxWalkingSpeed}"
-            );
+        if(standing<2000){
+            standing+=1;
+            AddReward(0.001f);
         }
-
-        // b. Rotation alignment with target direction.
-        //This reward will approach 1 if it faces the target direction perfectly and approach zero as it deviates
-        var lookAtTargetReward = (Vector3.Dot(cubeForward, head.forward) + 1) * .5F;
-
-        //Check for NaNs
-        if (float.IsNaN(lookAtTargetReward))
-        {
-            throw new ArgumentException(
-                "NaN in lookAtTargetReward.\n" +
-                $" cubeForward: {cubeForward}\n" +
-                $" head.forward: {head.forward}"
-            );
+        float temp = MathF.Min(Vector3.Distance(target.localPosition,handL.localPosition),Vector3.Distance(target.localPosition,handL.localPosition));
+        if(temp<distance){
+            //AddReward(distance-temp);
         }
-
-        AddReward(matchSpeedReward * lookAtTargetReward);
+        distance = temp;
     }
 
     //Returns the average velocity of all of the body parts
@@ -274,23 +222,14 @@ public class AttackAgent : Agent
         return avgVel;
     }
 
-    //normalized value of the difference in avg speed vs goal walking speed.
-    public float GetMatchingVelocityReward(Vector3 velocityGoal, Vector3 actualVelocity)
-    {
-        //distance between our actual velocity and goal velocity
-        var velDeltaMagnitude = Mathf.Clamp(Vector3.Distance(actualVelocity, velocityGoal), 0, MTargetWalkingSpeed);
-
-        //return the value on a declining sigmoid shaped curve that decays from 1 to 0
-        //This reward will approach 1 if it matches perfectly and approach zero as it deviates
-        return Mathf.Pow(1 - Mathf.Pow(velDeltaMagnitude / MTargetWalkingSpeed, 2), 2);
-    }
 
     /// <summary>
     /// Agent touched the target
     /// </summary>
     public void TouchedTarget()
     {
-        AddReward(1f);
+        //AddReward(1f);
+        EndEpisode();
     }
 
     public void SetTorsoMass()
