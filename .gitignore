@@ -11,6 +11,10 @@
 /[Uu]ser[Ss]ettings/
 /[Pp]ackages/
 
+#ignore ml-agents walker assets
+/[Aa]ssets/ML-Agents/
+/[Aa]ssets/ML-Agents.meta
+
 # MemoryCaptures can get excessive in size.
 # They also could contain extremely sensitive data
 /[Mm]emoryCaptures/
