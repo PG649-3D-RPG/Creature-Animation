@@ -19,6 +19,7 @@ using UnityEngine.Events;
         [System.Serializable]
         public class CollisionEvent : UnityEvent<Collision>
         {
+            
         }
 
         [Header("Collision Callbacks")]
@@ -49,10 +50,7 @@ using UnityEngine.Events;
 
         private void OnCollisionEnter(Collision col)
         {
-            if (col.transform.name.Contains(nameToDetect))
-            {
-                onCollisionEnterEvent.Invoke(col);
-            }
+            onCollisionEnterEvent.Invoke(col);
         }
         /*
         private void OnCollisionStay(Collision col)

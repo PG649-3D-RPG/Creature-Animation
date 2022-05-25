@@ -38,6 +38,8 @@ public class AttackAgent : Agent
     JointDriveController m_JdController;
     EnvironmentParameters m_ResetParams;
 
+    private string nameToAttackWith = "hand";
+
     private float distance;
     private float standing;
     public override void Initialize()
@@ -81,6 +83,7 @@ public class AttackAgent : Agent
         }
 
         distance = MathF.Min(Vector3.Distance(target.localPosition,handL.localPosition),Vector3.Distance(target.localPosition,handR.localPosition));
+        headHeight = this.head.transform.position.y;
         standing = 0;
         UpdateOrientationObjects();
 
@@ -188,17 +191,24 @@ public class AttackAgent : Agent
         }
     }
 
+    private float headHeight;
+
     void FixedUpdate()
     {
         UpdateOrientationObjects();
 
-        if(standing<2000){
-            standing+=1;
-            AddReward(0.001f);
-        }
+        //standing reward if agent does not fall for first 2000 steps
+        // if(standing<2000){
+        //     standing+=1;
+        //     AddReward(0.001f);
+        // }
         float temp = MathF.Min(Vector3.Distance(target.localPosition,handL.localPosition),Vector3.Distance(target.localPosition,handL.localPosition));
         if(temp<distance){
-            //AddReward(distance-temp);
+            AddReward(distance-temp);
+        }
+
+        if(Mathf.Abs(headHeight - this.head.transform.position.y) < 0.4){
+            AddReward(0.005f);
         }
         distance = temp;
     }
@@ -226,10 +236,21 @@ public class AttackAgent : Agent
     /// <summary>
     /// Agent touched the target
     /// </summary>
-    public void TouchedTarget()
+    public void TouchedTarget(Collision col)
     {
-        //AddReward(1f);
-        EndEpisode();
+        if (col.transform.name.Contains(nameToAttackWith)){
+            if(Mathf.Abs(headHeight - this.head.transform.position.y) < 0.35){ //only add the reward if the head is high enough
+                AddReward(1f);
+            }
+            //EndEpisode();
+        }
+        else if (col.transform.CompareTag("agent")){ //some part other than the agents hand touched the target
+            switch(col.transform.name){
+                case string a when a.Contains("head"): AddReward(-0.5f); Debug.Log("head hit target"); break;   
+            }
+        }
+
+        
     }
 
     public void SetTorsoMass()
