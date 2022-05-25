@@ -6,8 +6,6 @@ using UnityEngine.Events;
     public class TargetController : MonoBehaviour
     {
 
-        private string nameToDetect = "hand";
-
         private float spawnRadius; //The radius in which a target can be randomly spawned.
         private bool respawnIfTouched; //Should the target respawn to a different position when touched
 

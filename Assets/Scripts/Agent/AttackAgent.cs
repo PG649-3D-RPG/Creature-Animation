@@ -41,9 +41,12 @@ public class AttackAgent : Agent
     private string nameToAttackWith = "hand";
 
     private float distance;
-    private float standing;
+    private float defaultHandTargetDistance;
+
+
     public override void Initialize()
     {
+
         m_OrientationCube = GetComponentInChildren<OrientationCubeController>();
         m_DirectionIndicator = GetComponentInChildren<DirectionIndicator>();
 
@@ -76,6 +79,7 @@ public class AttackAgent : Agent
     /// </summary>
     public override void OnEpisodeBegin()
     {
+
         //Reset all of the body parts
         foreach (var bodyPart in m_JdController.bodyPartsDict.Values)
         {
@@ -83,8 +87,10 @@ public class AttackAgent : Agent
         }
 
         distance = MathF.Min(Vector3.Distance(target.localPosition,handL.localPosition),Vector3.Distance(target.localPosition,handR.localPosition));
+        defaultHandTargetDistance = distance;
+
         headHeight = this.head.transform.position.y;
-        standing = 0;
+
         UpdateOrientationObjects();
 
 
@@ -197,20 +203,12 @@ public class AttackAgent : Agent
     {
         UpdateOrientationObjects();
 
-        //standing reward if agent does not fall for first 2000 steps
-        // if(standing<2000){
-        //     standing+=1;
-        //     AddReward(0.001f);
-        // }
-        float temp = MathF.Min(Vector3.Distance(target.localPosition,handL.localPosition),Vector3.Distance(target.localPosition,handL.localPosition));
-        if(temp<distance){
-            AddReward(distance-temp);
-        }
-
         if(Mathf.Abs(headHeight - this.head.transform.position.y) < 0.4){
             AddReward(0.005f);
         }
-        distance = temp;
+
+        CalculateHandMovementReward();
+        
     }
 
     //Returns the average velocity of all of the body parts
@@ -240,17 +238,39 @@ public class AttackAgent : Agent
     {
         if (col.transform.name.Contains(nameToAttackWith)){
             if(Mathf.Abs(headHeight - this.head.transform.position.y) < 0.35){ //only add the reward if the head is high enough
+                movingTowards = false;
                 AddReward(1f);
             }
             //EndEpisode();
         }
         else if (col.transform.CompareTag("agent")){ //some part other than the agents hand touched the target
             switch(col.transform.name){
-                case string a when a.Contains("head"): AddReward(-0.5f); Debug.Log("head hit target"); break;   
+                case string a when a.Contains("head"): AddReward(-0.5f); break;   
             }
         }
+    }
 
-        
+    private bool movingTowards = true;
+    public void CalculateHandMovementReward(float movingAwayMin = 0.8f){
+        float temp = MathF.Min(Vector2.Distance(target.localPosition.Horizontal3dTo2d(),handL.localPosition.Horizontal3dTo2d()),Vector2.Distance(target.localPosition.Horizontal3dTo2d(),handL.localPosition.Horizontal3dTo2d()));
+        if(movingTowards){
+            if(temp<distance){
+                //Debug.Log($"Moving towards, receiving reward, distance: {temp}");
+                AddReward(Mathf.Abs(distance-temp));
+                distance = temp;
+            }
+        }
+        else{
+            if(temp>distance){
+                //Debug.Log($"Moving away, receiving reward, distance: {temp}");
+                AddReward(Mathf.Abs(distance-temp));
+                distance = temp;
+            }
+            if(temp > movingAwayMin * defaultHandTargetDistance){
+                movingTowards = true;
+            }
+        }
+        //distance = temp;
     }
 
     public void SetTorsoMass()
