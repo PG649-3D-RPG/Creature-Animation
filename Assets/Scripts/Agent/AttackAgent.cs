@@ -252,7 +252,7 @@ public class AttackAgent : Agent
 
     private bool movingTowards = true;
     public void CalculateHandMovementReward(float movingAwayMin = 0.8f){
-        float temp = MathF.Min(Vector2.Distance(target.localPosition.Horizontal3dTo2d(),handL.localPosition.Horizontal3dTo2d()),Vector2.Distance(target.localPosition.Horizontal3dTo2d(),handL.localPosition.Horizontal3dTo2d()));
+        float temp = MathF.Min(Vector2.Distance(target.localPosition.Horizontal3dTo2d(),handL.localPosition.Horizontal3dTo2d()),Vector2.Distance(target.localPosition.Horizontal3dTo2d(),handR.localPosition.Horizontal3dTo2d()));
         if(movingTowards){
             if(temp<distance){
                 //Debug.Log($"Moving towards, receiving reward, distance: {temp}");
