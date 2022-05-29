@@ -43,6 +43,8 @@ public class AttackAgent : Agent
     private float distance;
     private float defaultHandTargetDistance;
 
+    private Transform parentArena;
+
 
     public override void Initialize()
     {
@@ -72,6 +74,8 @@ public class AttackAgent : Agent
         m_ResetParams = Academy.Instance.EnvironmentParameters;
 
         SetResetParameters();
+
+        parentArena = transform.parent;
     }
 
     /// <summary>
@@ -86,7 +90,11 @@ public class AttackAgent : Agent
             bodyPart.Reset(bodyPart);
         }
 
-        distance = MathF.Min(Vector3.Distance(target.localPosition,handL.localPosition),Vector3.Distance(target.localPosition,handR.localPosition));
+        float leftHandDistance = Vector2.Distance( parentArena.InverseTransformPoint(target.position).Horizontal3dTo2d(), parentArena.InverseTransformPoint(handL.position).Horizontal3dTo2d() );
+        float rightHandDistance = Vector2.Distance( parentArena.InverseTransformPoint(target.position).Horizontal3dTo2d(), parentArena.InverseTransformPoint(handR.position).Horizontal3dTo2d() );
+
+        distance = MathF.Min(leftHandDistance, rightHandDistance);
+
         defaultHandTargetDistance = distance;
 
         headHeight = this.head.transform.position.y;
@@ -252,21 +260,26 @@ public class AttackAgent : Agent
 
     private bool movingTowards = true;
     public void CalculateHandMovementReward(float movingAwayMin = 0.7f){
-        float temp = MathF.Min(Vector2.Distance(target.localPosition.Horizontal3dTo2d(),handL.localPosition.Horizontal3dTo2d()),Vector2.Distance(target.localPosition.Horizontal3dTo2d(),handR.localPosition.Horizontal3dTo2d()));
+        float leftHandDistance = Vector2.Distance( parentArena.InverseTransformPoint(target.position).Horizontal3dTo2d(), parentArena.InverseTransformPoint(handL.position).Horizontal3dTo2d() );
+        float rightHandDistance = Vector2.Distance( parentArena.InverseTransformPoint(target.position).Horizontal3dTo2d(), parentArena.InverseTransformPoint(handR.position).Horizontal3dTo2d() );
+
+        float temp = MathF.Min(leftHandDistance, rightHandDistance);
+        //Debug.Log($"LeftHand: {leftHandDistance} / RightHand: {rightHandDistance}");
         if(movingTowards){
             if(temp<distance){
                 //Debug.Log($"Moving towards, receiving reward, distance: {temp}");
-                AddReward(Mathf.Abs(distance-temp)*3);
+                AddReward(Mathf.Abs(distance-temp));
                 distance = temp;
             }
         }
         else{
             if(temp>distance){
                 //Debug.Log($"Moving away, receiving reward, distance: {temp}");
-                AddReward(Mathf.Abs(distance-temp)*3);
+                AddReward(Mathf.Abs(distance-temp));
                 distance = temp;
             }
             if(temp > movingAwayMin * defaultHandTargetDistance){
+                //Debug.Log($"Reached minimum moving away distance, switching to moving towards / temp: {temp} / defaultDistance: {defaultHandTargetDistance}");
                 movingTowards = true;
             }
         }
