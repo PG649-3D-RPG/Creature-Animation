@@ -41,7 +41,7 @@ public class AttackAgent : Agent
     private string nameToAttackWith = "hand";
 
     private float distance;
-    private float standing;
+    private Transform parentArena;
     public override void Initialize()
     {
         m_OrientationCube = GetComponentInChildren<OrientationCubeController>();
@@ -69,6 +69,8 @@ public class AttackAgent : Agent
         m_ResetParams = Academy.Instance.EnvironmentParameters;
 
         SetResetParameters();
+
+        parentArena = transform.parent;
     }
 
     /// <summary>
@@ -82,9 +84,12 @@ public class AttackAgent : Agent
             bodyPart.Reset(bodyPart);
         }
 
-        distance = MathF.Min(Vector3.Distance(target.localPosition,handL.localPosition),Vector3.Distance(target.localPosition,handR.localPosition));
+        float leftHandDistance = Vector2.Distance( parentArena.InverseTransformPoint(target.position).Horizontal3dTo2d(), parentArena.InverseTransformPoint(handL.position).Horizontal3dTo2d() );
+        float rightHandDistance = Vector2.Distance( parentArena.InverseTransformPoint(target.position).Horizontal3dTo2d(), parentArena.InverseTransformPoint(handR.position).Horizontal3dTo2d() );
+
+        distance = MathF.Min(leftHandDistance, rightHandDistance);
         headHeight = this.head.transform.position.y;
-        standing = 0;
+
         UpdateOrientationObjects();
 
 
@@ -197,12 +202,10 @@ public class AttackAgent : Agent
     {
         UpdateOrientationObjects();
 
-        //standing reward if agent does not fall for first 2000 steps
-        // if(standing<2000){
-        //     standing+=1;
-        //     AddReward(0.001f);
-        // }
-        float temp = MathF.Min(Vector3.Distance(target.localPosition,handL.localPosition),Vector3.Distance(target.localPosition,handL.localPosition));
+        float leftHandDistance = Vector2.Distance( parentArena.InverseTransformPoint(target.position).Horizontal3dTo2d(), parentArena.InverseTransformPoint(handL.position).Horizontal3dTo2d() );
+        float rightHandDistance = Vector2.Distance( parentArena.InverseTransformPoint(target.position).Horizontal3dTo2d(), parentArena.InverseTransformPoint(handR.position).Horizontal3dTo2d() );
+
+        float temp = MathF.Min(leftHandDistance, rightHandDistance);
         if(temp<distance){
             AddReward(distance-temp);
         }
@@ -264,4 +267,5 @@ public class AttackAgent : Agent
     {
         SetTorsoMass();
     }
+
 }
