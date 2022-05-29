@@ -72,8 +72,9 @@ using UnityEngine.Events;
 
         private void OnCollisionEnter(Collision col)
         {
+            //Debug.Log($"Collision with force {col.impulse.magnitude / Time.fixedDeltaTime}");
             onCollisionEnterEvent.Invoke(col);
-            MoveTargetToRandomPosition();
+            if(respawnIfTouched) MoveTargetToRandomPosition();
         }
         /*
         private void OnCollisionStay(Collision col)
