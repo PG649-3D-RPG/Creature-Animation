@@ -216,6 +216,12 @@ public class AttackAgent : Agent
         }
 
         CalculateHandMovementReward();
+
+
+        if(this.head.transform.position.y < 0){
+            SetReward(-10);
+            EndEpisode();
+        }
         
     }
 

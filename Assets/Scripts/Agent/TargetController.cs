@@ -7,7 +7,7 @@ using UnityEngine.Events;
     {
 
         private float spawnRadius; //The radius in which a target can be randomly spawned.
-        private bool respawnIfTouched; //Should the target respawn to a different position when touched
+        public bool respawnIfTouched; //Should the target respawn to a different position when touched
 
 
         private Vector3 m_startingPos; //the starting position of the target
@@ -23,14 +23,23 @@ using UnityEngine.Events;
         [Header("Collision Callbacks")]
         public CollisionEvent onCollisionEnterEvent = new CollisionEvent();
 
-        /*
-        public CollisionEvent onCollisionStayEvent = new CollisionEvent();
-        public CollisionEvent onCollisionExitEvent = new CollisionEvent();
-        */
-        // Start is called before the first frame update
-        void OnEnable()
-        {
-            m_startingPos = transform.position;
+        private Vector3[] targetPositions;
+        public int vertexCount = 40;
+        public float radius = 3.5f;
+        public Transform agentTransform;
+
+        public void OnEnable(){
+            targetPositions = new Vector3[vertexCount];
+
+            float deltaTheta = (2f * Mathf.PI)/vertexCount;
+            float theta = 0f;
+
+            for (int i = 0; i< vertexCount; i++){
+                Vector3 pos = new Vector3(agentTransform.position.x + radius* Mathf.Cos(theta),transform.position.y,agentTransform.position.z +radius*Mathf.Sin(theta));
+                theta +=deltaTheta;
+                targetPositions[i]=pos;
+            }
+
             if (respawnIfTouched)
             {
                 //TODO change to fixed Position
@@ -38,17 +47,33 @@ using UnityEngine.Events;
             }
         }
 
+        /*
+        public CollisionEvent onCollisionStayEvent = new CollisionEvent();
+        public CollisionEvent onCollisionExitEvent = new CollisionEvent();
+        */
+        // Start is called before the first frame update
+        // void OnEnable()
+        // {
+
+        //     m_startingPos = transform.position;
+        //     if (respawnIfTouched)
+        //     {
+        //         //TODO change to fixed Position
+        //         MoveTargetToRandomPosition();
+        //     }
+        // }
+
         public void MoveTargetToRandomPosition()
         {
             //TODO Advanced: Move on circle
-            var newTargetPos = m_startingPos + (Random.insideUnitSphere * spawnRadius);
-            newTargetPos.y = m_startingPos.y;
-            transform.position = newTargetPos;
+            int choice = Random.Range(0, 40);
+            transform.position = targetPositions[choice];
         }
 
         private void OnCollisionEnter(Collision col)
         {
             onCollisionEnterEvent.Invoke(col);
+            MoveTargetToRandomPosition();
         }
         /*
         private void OnCollisionStay(Collision col)
