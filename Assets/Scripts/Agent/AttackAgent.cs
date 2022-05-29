@@ -41,6 +41,7 @@ public class AttackAgent : Agent
     private string nameToAttackWith = "hand";
 
     private float distance;
+    private float startDistance;
     private Transform parentArena;
     public override void Initialize()
     {
@@ -88,6 +89,7 @@ public class AttackAgent : Agent
         float rightHandDistance = Vector2.Distance( parentArena.InverseTransformPoint(target.position).Horizontal3dTo2d(), parentArena.InverseTransformPoint(handR.position).Horizontal3dTo2d() );
 
         distance = MathF.Min(leftHandDistance, rightHandDistance);
+        startDistance = distance;
         headHeight = this.head.transform.position.y;
 
         UpdateOrientationObjects();
@@ -208,12 +210,17 @@ public class AttackAgent : Agent
         float temp = MathF.Min(leftHandDistance, rightHandDistance);
         if(temp<distance){
             AddReward(distance-temp);
+            distance = temp;
         }
 
         if(Mathf.Abs(headHeight - this.head.transform.position.y) < 0.4){
             AddReward(0.005f);
         }
-        distance = temp;
+
+        if(this.head.position.y < 0){
+            SetReward(-10f);
+            EndEpisode();
+        }
     }
 
     //Returns the average velocity of all of the body parts
@@ -244,6 +251,7 @@ public class AttackAgent : Agent
         if (col.transform.name.Contains(nameToAttackWith)){
             if(Mathf.Abs(headHeight - this.head.transform.position.y) < 0.35){ //only add the reward if the head is high enough
                 AddReward(1f);
+                distance = startDistance;
             }
             //EndEpisode();
         }
