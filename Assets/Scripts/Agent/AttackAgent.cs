@@ -256,9 +256,7 @@ public class AttackAgent : Agent
             //EndEpisode();
         }
         else if (col.transform.CompareTag("agent")){ //some part other than the agents hand touched the target
-            switch(col.transform.name){
-                case string a when a.Contains("head"): AddReward(-0.5f); Debug.Log("head hit target"); break;   
-            }
+            AddReward(-0.5f);
         }
 
         
