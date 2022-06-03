@@ -265,7 +265,7 @@ public class AttackAgent : Agent
     }
 
     private bool movingTowards = true;
-    public void CalculateHandMovementReward(float movingAwayMin = 0.7f){
+    public void CalculateHandMovementReward(float movingAwayMin = 0.4f){
         float leftHandDistance = Vector2.Distance( parentArena.InverseTransformPoint(target.position).Horizontal3dTo2d(), parentArena.InverseTransformPoint(handL.position).Horizontal3dTo2d() );
         float rightHandDistance = Vector2.Distance( parentArena.InverseTransformPoint(target.position).Horizontal3dTo2d(), parentArena.InverseTransformPoint(handR.position).Horizontal3dTo2d() );
 
