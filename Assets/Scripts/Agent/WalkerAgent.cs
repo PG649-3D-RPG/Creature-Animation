@@ -68,26 +68,26 @@ public class WalkerAgent : Agent
 
         //Setup each body part
         m_JdController = GetComponent<JointDriveController>();
-        m_JdController.SetupBodyPart(hips);
-        m_JdController.SetupBodyPart(chest);
-        m_JdController.SetupBodyPart(spine);
-        m_JdController.SetupBodyPart(head);
-        m_JdController.SetupBodyPart(thighL);
-        m_JdController.SetupBodyPart(shinL);
-        m_JdController.SetupBodyPart(footL);
-        m_JdController.SetupBodyPart(thighR);
-        m_JdController.SetupBodyPart(shinR);
-        m_JdController.SetupBodyPart(footR);
-        m_JdController.SetupBodyPart(armL);
-        m_JdController.SetupBodyPart(forearmL);
-        m_JdController.SetupBodyPart(handL);
-        m_JdController.SetupBodyPart(armR);
-        m_JdController.SetupBodyPart(forearmR);
-        m_JdController.SetupBodyPart(handR);
+        // m_JdController.SetupBodyPart(hips);
+        // m_JdController.SetupBodyPart(chest);
+        // m_JdController.SetupBodyPart(spine);
+        // m_JdController.SetupBodyPart(head);
+        // m_JdController.SetupBodyPart(thighL);
+        // m_JdController.SetupBodyPart(shinL);
+        // m_JdController.SetupBodyPart(footL);
+        // m_JdController.SetupBodyPart(thighR);
+        // m_JdController.SetupBodyPart(shinR);
+        // m_JdController.SetupBodyPart(footR);
+        // m_JdController.SetupBodyPart(armL);
+        // m_JdController.SetupBodyPart(forearmL);
+        // m_JdController.SetupBodyPart(handL);
+        // m_JdController.SetupBodyPart(armR);
+        // m_JdController.SetupBodyPart(forearmR);
+        // m_JdController.SetupBodyPart(handR);
 
         m_ResetParams = Academy.Instance.EnvironmentParameters;
 
-        SetResetParameters();
+        //SetResetParameters();
     }
 
     /// <summary>
