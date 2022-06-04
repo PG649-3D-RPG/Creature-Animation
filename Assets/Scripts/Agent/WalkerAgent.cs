@@ -1,4 +1,4 @@
-// This file is a modified version of the MLAgents WalkerAgent script found in MLAgents Example Walker project. 
+// This file is a slightly modified version of the MLAgents WalkerAgent script found in MLAgents Example Walker project. It is used only for test purposes in this project. All copyright goes to the MLAgents team.
 
 using System;
 using UnityEngine;
@@ -9,10 +9,31 @@ using Unity.MLAgents.Sensors;
 using BodyPart = Unity.MLAgentsExamples.BodyPart;
 using Random = UnityEngine.Random;
 
-public class AttackAgent : Agent
+public class WalkerAgent : Agent
 {
+    [Header("Walk Speed")]
+    [Range(0.1f, 10)]
+    [SerializeField]
+    //The walking speed to try and achieve
+    private float m_TargetWalkingSpeed = 10;
 
-    [Header("Target To Attack")] public Transform target; 
+    public float MTargetWalkingSpeed // property
+    {
+        get { return m_TargetWalkingSpeed; }
+        set { m_TargetWalkingSpeed = Mathf.Clamp(value, .1f, m_maxWalkingSpeed); }
+    }
+
+    const float m_maxWalkingSpeed = 10; //The max walking speed
+
+    //Should the agent sample a new goal velocity each episode?
+    //If true, walkSpeed will be randomly set between zero and m_maxWalkingSpeed in OnEpisodeBegin()
+    //If false, the goal velocity will be walkingSpeed
+    public bool randomizeWalkSpeedEachEpisode;
+
+    //The direction an agent will walk during training.
+    private Vector3 m_WorldDirToWalk = Vector3.right;
+
+    [Header("Target To Walk Towards")] public Transform target; //Target the agent will walk towards during training.
 
     [Header("Body Parts")] public Transform hips;
     public Transform chest;
@@ -40,17 +61,8 @@ public class AttackAgent : Agent
     JointDriveController m_JdController;
     EnvironmentParameters m_ResetParams;
 
-    private string nameToAttackWith = "hand";
-
-    private float distance;
-    private float defaultHandTargetDistance;
-
-    private Transform parentArena;
-
-
     public override void Initialize()
     {
-
         m_OrientationCube = GetComponentInChildren<OrientationCubeController>();
         m_DirectionIndicator = GetComponentInChildren<DirectionIndicator>();
 
@@ -76,8 +88,6 @@ public class AttackAgent : Agent
         m_ResetParams = Academy.Instance.EnvironmentParameters;
 
         SetResetParameters();
-
-        parentArena = transform.parent;
     }
 
     /// <summary>
@@ -85,24 +95,20 @@ public class AttackAgent : Agent
     /// </summary>
     public override void OnEpisodeBegin()
     {
-
         //Reset all of the body parts
         foreach (var bodyPart in m_JdController.bodyPartsDict.Values)
         {
             bodyPart.Reset(bodyPart);
         }
 
-        float leftHandDistance = Vector2.Distance( parentArena.InverseTransformPoint(target.position).Horizontal3dTo2d(), parentArena.InverseTransformPoint(handL.position).Horizontal3dTo2d() );
-        float rightHandDistance = Vector2.Distance( parentArena.InverseTransformPoint(target.position).Horizontal3dTo2d(), parentArena.InverseTransformPoint(handR.position).Horizontal3dTo2d() );
-
-        distance = MathF.Min(leftHandDistance, rightHandDistance);
-
-        defaultHandTargetDistance = distance;
-
-        headHeight = this.head.transform.position.y;
+        //Random start rotation to help generalize
+        hips.rotation = Quaternion.Euler(0, Random.Range(0.0f, 360.0f), 0);
 
         UpdateOrientationObjects();
 
+        //Set our goal walking speed
+        MTargetWalkingSpeed =
+            randomizeWalkSpeedEachEpisode ? Random.Range(0.1f, m_maxWalkingSpeed) : MTargetWalkingSpeed;
 
         SetResetParameters();
     }
@@ -137,13 +143,17 @@ public class AttackAgent : Agent
     {
         var cubeForward = m_OrientationCube.transform.forward;
 
+        //velocity we want to match
+        var velGoal = cubeForward * MTargetWalkingSpeed;
         //ragdoll's avg vel
         var avgVel = GetAvgVelocity();
 
         //current ragdoll velocity. normalized
-        sensor.AddObservation(avgVel);
+        sensor.AddObservation(Vector3.Distance(velGoal, avgVel));
         //avg body vel relative to cube
         sensor.AddObservation(m_OrientationCube.transform.InverseTransformDirection(avgVel));
+        //vel goal relative to cube
+        sensor.AddObservation(m_OrientationCube.transform.InverseTransformDirection(velGoal));
 
         //rotation deltas
         sensor.AddObservation(Quaternion.FromToRotation(hips.forward, cubeForward));
@@ -200,6 +210,7 @@ public class AttackAgent : Agent
     //Update OrientationCube and DirectionIndicator
     void UpdateOrientationObjects()
     {
+        m_WorldDirToWalk = target.position - hips.position;
         m_OrientationCube.UpdateOrientation(hips, target);
         if (m_DirectionIndicator)
         {
@@ -207,24 +218,43 @@ public class AttackAgent : Agent
         }
     }
 
-    private float headHeight;
-
     void FixedUpdate()
     {
         UpdateOrientationObjects();
 
-        if(Mathf.Abs(headHeight - this.head.transform.position.y) < 0.3){
-            AddReward(0.0025f);
+        var cubeForward = m_OrientationCube.transform.forward;
+
+        // Set reward for this step according to mixture of the following elements.
+        // a. Match target speed
+        //This reward will approach 1 if it matches perfectly and approach zero as it deviates
+        var matchSpeedReward = GetMatchingVelocityReward(cubeForward * MTargetWalkingSpeed, GetAvgVelocity());
+
+        //Check for NaNs
+        if (float.IsNaN(matchSpeedReward))
+        {
+            throw new ArgumentException(
+                "NaN in moveTowardsTargetReward.\n" +
+                $" cubeForward: {cubeForward}\n" +
+                $" hips.velocity: {m_JdController.bodyPartsDict[hips].rb.velocity}\n" +
+                $" maximumWalkingSpeed: {m_maxWalkingSpeed}"
+            );
         }
 
-        CalculateHandMovementReward();
+        // b. Rotation alignment with target direction.
+        //This reward will approach 1 if it faces the target direction perfectly and approach zero as it deviates
+        var lookAtTargetReward = (Vector3.Dot(cubeForward, head.forward) + 1) * .5F;
 
-
-        if(this.head.transform.position.y < 0){
-            SetReward(-10);
-            EndEpisode();
+        //Check for NaNs
+        if (float.IsNaN(lookAtTargetReward))
+        {
+            throw new ArgumentException(
+                "NaN in lookAtTargetReward.\n" +
+                $" cubeForward: {cubeForward}\n" +
+                $" head.forward: {head.forward}"
+            );
         }
-        
+
+        AddReward(matchSpeedReward * lookAtTargetReward);
     }
 
     //Returns the average velocity of all of the body parts
@@ -246,52 +276,23 @@ public class AttackAgent : Agent
         return avgVel;
     }
 
+    //normalized value of the difference in avg speed vs goal walking speed.
+    public float GetMatchingVelocityReward(Vector3 velocityGoal, Vector3 actualVelocity)
+    {
+        //distance between our actual velocity and goal velocity
+        var velDeltaMagnitude = Mathf.Clamp(Vector3.Distance(actualVelocity, velocityGoal), 0, MTargetWalkingSpeed);
+
+        //return the value on a declining sigmoid shaped curve that decays from 1 to 0
+        //This reward will approach 1 if it matches perfectly and approach zero as it deviates
+        return Mathf.Pow(1 - Mathf.Pow(velDeltaMagnitude / MTargetWalkingSpeed, 2), 2);
+    }
 
     /// <summary>
     /// Agent touched the target
     /// </summary>
-    public void TouchedTarget(Collision col)
+    public void TouchedTarget()
     {
-        if (col.transform.name.Contains(nameToAttackWith) && movingTowards){
-            if(Mathf.Abs(headHeight - this.head.transform.position.y) < 0.3){ //only add the reward if the head is high enough
-                movingTowards = false;
-                AddReward(1f);
-            }
-            //EndEpisode();
-        }
-        else if (col.transform.CompareTag("agent")){ //some part other than the agents hand touched the target
-            switch(col.transform.name){
-                case string a when a.Contains("head"): AddReward(-0.5f); break;   
-            }
-        }
-    }
-
-    private bool movingTowards = true;
-    public void CalculateHandMovementReward(float movingAwayMin = 0.4f){
-        float leftHandDistance = Vector2.Distance( parentArena.InverseTransformPoint(target.position).Horizontal3dTo2d(), parentArena.InverseTransformPoint(handL.position).Horizontal3dTo2d() );
-        float rightHandDistance = Vector2.Distance( parentArena.InverseTransformPoint(target.position).Horizontal3dTo2d(), parentArena.InverseTransformPoint(handR.position).Horizontal3dTo2d() );
-
-        float temp = MathF.Min(leftHandDistance, rightHandDistance);
-        //Debug.Log($"LeftHand: {leftHandDistance} / RightHand: {rightHandDistance}");
-        if(movingTowards){
-            if(temp<distance){
-                //Debug.Log($"Moving towards, receiving reward, distance: {temp}");
-                AddReward(Mathf.Abs(distance-temp));
-                distance = temp;
-            }
-        }
-        else{
-            if(temp>distance){
-                //Debug.Log($"Moving away, receiving reward, distance: {temp}");
-                AddReward(Mathf.Abs(distance-temp));
-                distance = temp;
-            }
-            if(temp > movingAwayMin * defaultHandTargetDistance){
-                //Debug.Log($"Reached minimum moving away distance, switching to moving towards / temp: {temp} / defaultDistance: {defaultHandTargetDistance}");
-                movingTowards = true;
-            }
-        }
-        //distance = temp;
+        AddReward(1f);
     }
 
     public void SetTorsoMass()
