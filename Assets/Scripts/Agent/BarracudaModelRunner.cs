@@ -21,4 +21,8 @@ public class BarracudaModelRunner{
         return output;
     }
 
+    public void DisposeWorker(){
+        worker.Dispose();
+    }
+
 }

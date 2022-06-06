@@ -118,7 +118,7 @@ public class MultiModelControl : MonoBehaviour{
 
     private float attackDistance = 3.8f;
     public void FixedUpdate(){
-        if(updateCount != updateInterval){
+        if(updateCount % updateInterval != 0){
             updateCount++;
             return;
         }
@@ -143,11 +143,11 @@ public class MultiModelControl : MonoBehaviour{
         // Actually perform some actions from the networks
         float currentDistance = Vector2.Distance( parentArena.InverseTransformPoint(m_OrientationCube.transform.position).Horizontal3dTo2d(), parentArena.InverseTransformPoint(target.position).Horizontal3dTo2d());
         if(currentDistance < attackDistance && attackerActions != null){
-            Debug.Log($"Performing attacker actions / distance {currentDistance} ");
+            //Debug.Log($"Performing attacker actions / distance {currentDistance} ");
             PerformActions(attackerActions);
         }
         else if(walkerActions != null){
-            Debug.Log($"Performing walker actions / distance {currentDistance}");
+            //Debug.Log($"Performing walker actions / distance {currentDistance}");
             PerformActions(walkerActions);
         }
         else{
@@ -164,7 +164,12 @@ public class MultiModelControl : MonoBehaviour{
         if(walkerObservation != null) walkerObservation.Dispose();
 
         UpdateOrientationObjects();
-        updateCount = 0;
+        updateCount = (updateCount+1)%updateInterval;
+    }
+
+    private void OnDestroy() {
+        walkerRunner.DisposeWorker();
+        attackerRunner.DisposeWorker();
     }
 
     public WalkerAgent walkerAgent;
@@ -300,7 +305,7 @@ public class MultiModelControl : MonoBehaviour{
 
         float[] continuousActions = actions.ToReadOnlyArray();
         actions.Dispose();
-
+        
         bpDict[chest].SetJointTargetRotation(continuousActions[++i], continuousActions[++i], continuousActions[++i]);
         bpDict[spine].SetJointTargetRotation(continuousActions[++i], continuousActions[++i], continuousActions[++i]);
 
